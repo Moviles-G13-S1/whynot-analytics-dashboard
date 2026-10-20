@@ -1,5 +1,5 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, db, useEmulators } from './firebase.js';
+import { adminAnalytics, auth, useEmulators } from './firebase.js';
 import { clearAnalyticsCache, loadAnalytics, warmAnalyticsCache } from './analytics.js';
 import './style.css';
 
@@ -101,7 +101,7 @@ async function load(fresh = false) {
   const serial = ++state.serial;
   if (fresh) {
     clearCachedMetrics();
-    warmAnalyticsCache(db);
+    warmAnalyticsCache(adminAnalytics);
   }
   const key = viewKey();
   if (viewCache.has(key)) {
@@ -116,7 +116,7 @@ async function load(fresh = false) {
     const params = {};
     if (state.view === 'purchased') params.months = state.months;
     if (state.view === 'demographic' && state.categoryId) params.categoryId = state.categoryId;
-    const result = await loadAnalytics(db, state.view, params);
+    const result = await loadAnalytics(adminAnalytics, state.view, params);
     if (serial !== state.serial) return;
     viewCache.set(key, result);
     state.data = result;
@@ -126,9 +126,9 @@ async function load(fresh = false) {
     }
   } catch (error) {
     if (serial !== state.serial) return;
-    state.error = error.code === 'permission-denied'
-      ? 'This account cannot read the metric data. Sign out and back in, then try again.'
-      : 'Could not read the metric data. Check your connection and try again.';
+    state.error = error.code === 'functions/permission-denied' || error.code === 'functions/unauthenticated'
+      ? 'This account cannot access the analytics function. Sign out and back in, then try again.'
+      : 'Could not load analytics from the backend. Check your connection and try again.';
     state.data = null;
   } finally { if (serial === state.serial) { state.loading = false; renderView(); } }
 }
@@ -148,7 +148,7 @@ onAuthStateChanged(auth, async user => {
     const token = await user.getIdTokenResult(true);
     if (!token.claims.admin) { signInView('This account does not have administrator access.'); return; }
     state.admin = true;
-    warmAnalyticsCache(db);
+    warmAnalyticsCache(adminAnalytics);
     state.view = location.hash.match(/^#\/(saved|recommended|purchased|demographic)$/)?.[1] || 'saved';
     shell(); load();
   } catch { signInView('Could not verify administrator access. Check your connection.'); }

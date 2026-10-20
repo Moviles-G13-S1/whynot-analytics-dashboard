@@ -1,9 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
 
 // Public Firebase Web app identifiers, shared with the Flutter web configuration.
-// These are not credentials. Firestore Security Rules enforce data access.
+// These are not credentials. The backend callable enforces admin access independently.
 export const useEmulators = import.meta.env.VITE_USE_EMULATORS === 'true';
 const app = initializeApp({
   apiKey: 'AIzaSyC4xtLLJm8OCQjsstslGStVU8C-iAJdEoc',
@@ -15,8 +15,9 @@ const app = initializeApp({
 });
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+const functions = getFunctions(app, 'us-central1');
+export const adminAnalytics = httpsCallable(functions, 'get_admin_analytics');
 if (useEmulators) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 }
