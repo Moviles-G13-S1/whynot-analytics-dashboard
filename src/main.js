@@ -1,5 +1,6 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, getAdminAnalytics, useEmulators } from './firebase.js';
+import { auth, db, useEmulators } from './firebase.js';
+import { loadAnalytics } from './analytics.js';
 import './style.css';
 
 const app = document.querySelector('#app');
@@ -94,16 +95,18 @@ async function load() {
   const serial = ++state.serial;
   state.loading = true; state.error = null; renderView();
   try {
-    const params = { view: state.view };
+    const params = {};
     if (state.view === 'purchased') params.months = state.months;
     if (state.view === 'demographic' && state.categoryId) params.categoryId = state.categoryId;
-    const response = await getAdminAnalytics(params);
+    const result = await loadAnalytics(db, state.view, params);
     if (serial !== state.serial) return;
-    state.data = response.data;
+    state.data = result;
     if (state.view === 'demographic') state.categoryId = state.data.categoryId;
   } catch (error) {
     if (serial !== state.serial) return;
-    state.error = error.code === 'functions/permission-denied' ? 'Your account does not have the admin claim.' : error.code === 'functions/not-found' ? 'The analytics function is not deployed in the production project yet.' : 'Check the production connection and the Cloud Run invoker policy, then try again.';
+    state.error = error.code === 'permission-denied'
+      ? 'This account cannot read the metric data. Sign out and back in, then try again.'
+      : 'Could not read the metric data. Check your connection and try again.';
     state.data = null;
   } finally { if (serial === state.serial) { state.loading = false; renderView(); } }
 }

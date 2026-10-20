@@ -15,7 +15,7 @@ npm run dev
 
 Open the Vite URL, normally `http://127.0.0.1:5173`. Every teammate can run a separate copy on their own localhost; cloning does not create a local Firebase database. The public Web SDK configuration in `src/firebase.js` points to production. A regular account can sign in but cannot open analytics. Sign out with the button in the top bar.
 
-If sign-in is rejected despite correct credentials, an administrator should check that Email/Password sign-in is enabled, the account has the custom claim, the token was refreshed by signing out and in, and localhost is allowed in the Firebase Authentication authorized domains. The frontend checks a freshly refreshed token, while the Cloud Function independently checks the claim on every request.
+If sign-in is rejected despite correct credentials, check that Email/Password sign-in is enabled, the account has the custom claim, the token was refreshed by signing out and in, and localhost is allowed in the Firebase Authentication authorized domains. The frontend checks a freshly refreshed token, while Firestore Security Rules independently check the claim on every read.
 
 ## Metrics and interactions
 
@@ -28,27 +28,22 @@ If sign-in is rejected despite correct credentials, an administrator should chec
 
 The definitions match the existing Flutter summary models. In particular, the demographic screen describes owners of current products in a category, even if those products have not been marked purchased. Purchase month boundaries use `America/Bogota`. BQ3 is a historical event count, so deleting the saved product later does not reduce it; the legacy `adminMetrics/recommendedProductSaves` document is neither read nor updated by this dashboard.
 
-All calculations run in `whynot-back/functions/analytics.py` through the callable `get_admin_analytics`; the browser receives processed results. The dashboard has no Firestore read or write operations. The Cloud Function checks the admin claim before its first data read. Its Admin SDK is confined to the backend.
+The dashboard reads `products`, `users`, `categories`, `cities`, and BQ3's `productEvents` with the Firebase Web SDK, then calculates the four views in `src/analytics.js`. It makes no Firestore writes. Firestore Security Rules allow these reads only for the same `admin: true` application role used by Flutter, except the public city catalog. This role is separate from Google Cloud project ownership.
 
 ## Backend setup and validation
 
-The sibling `whynot-back` repository must have `get_admin_analytics` and the updated `save_recommended_product` deployed to `whynot-f4ae6` before production use. From that repository, after reviewing the changes:
+The sibling `whynot-back` repository must have the updated `productEvents` read rule deployed to `whynot-f4ae6` before BQ3 works. From that repository:
 
 ```bash
-npm ci
-python3.13 -m unittest discover -s tests -p 'test_*.py'
 npm run test:rules
-npm run test:smart-features
-firebase deploy --only functions:get_admin_analytics,functions:save_recommended_product --project whynot-f4ae6
+firebase deploy --only firestore:rules --project whynot-f4ae6
 ```
 
-For a new 2nd Gen callable, Firebase also sets the Cloud Run service's invoker policy. If the deploy says it could not set IAM on `get-admin-analytics`, a project owner must grant the deployer `roles/run.admin`, then rerun the deploy, or set the service's `roles/run.invoker` binding for `allUsers`. Public invocation only allows the request to reach the function; the function itself returns `permission-denied` unless the Firebase ID token has `admin: true`. A Cloud Run HTML 403 indicates this service-level policy is still missing.
+Firestore emulator tests use `demo-whynot` and do not modify production. They need Java 21. The production BQ3 test script creates a recommendation save and **does modify production data**, so do not run it for read-only verification.
 
-Firestore and Functions emulator tests use `demo-whynot` and do not modify production. The full emulator suite needs Java 21 and Python 3.13 with the Firebase Functions requirements installed. The production BQ3 test script creates a recommendation save and **does modify production data**, so do not run it for read-only verification.
+For browser testing against local emulators, run Auth and Firestore emulators for `demo-whynot`, seed the data, then start this dashboard with `VITE_USE_EMULATORS=true npm run dev`. This explicit flag changes the project ID to `demo-whynot`; the default always uses production.
 
-For browser testing against local emulators, run Auth, Firestore, and Functions emulators for `demo-whynot`, seed them with `node scripts/test-smart-features/index.mjs` from `whynot-back`, then start this dashboard with `VITE_USE_EMULATORS=true npm run dev`. This explicit flag changes the project ID to `demo-whynot`; the default always uses production.
-
-For a read-only production check after deployment: run the dashboard, sign in with an admin account, inspect each view and change its filters, refresh, sign out, then sign in with a regular account and confirm access is denied. A second teammate should repeat from another computer. Without an admin account, deployment, or an authorized local origin, this check remains pending.
+For a read-only production check after deployment: run the dashboard, sign in with an admin account, inspect each view and change its filters, refresh, sign out, then sign in with a regular account and confirm access is denied. A second teammate should repeat from another computer.
 
 ## Development commands
 
