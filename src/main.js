@@ -1,6 +1,6 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth, db, useEmulators } from './firebase.js';
-import { loadAnalytics } from './analytics.js';
+import { clearAnalyticsCache, loadAnalytics, warmAnalyticsCache } from './analytics.js';
 import './style.css';
 
 const app = document.querySelector('#app');
@@ -11,6 +11,12 @@ const views = [
   ['demographic', 'Demographic profile', 'Audience insights by product category'],
 ];
 const state = { view: 'saved', months: 6, categoryId: null, savedMetric: 'percentage', hidden: new Set(), user: null, admin: false, data: null, loading: false, error: null, serial: 0 };
+const viewCache = new Map();
+const viewKey = () => `${state.view}:${state.view === 'purchased' ? state.months : state.view === 'demographic' ? state.categoryId ?? '' : ''}`;
+function clearCachedMetrics() {
+  viewCache.clear();
+  clearAnalyticsCache();
+}
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const number = value => Number(value || 0).toLocaleString('en-US');
 const pill = (label, active, action, value) => `<button class="pill ${active ? 'active' : ''}" data-action="${action}" data-value="${escape(value)}">${escape(label)}</button>`;
@@ -40,7 +46,7 @@ function shell() {
   const [, name, subtitle] = views.find(([id]) => id === state.view);
   app.innerHTML = `<div class="layout"><aside class="sidebar"><div class="brand">WHYNOT <span>ADMIN</span></div><div class="nav-label">ANALYTICS</div><nav aria-label="Analytics views">${views.map(([id, label], index) => `<a class="nav-link ${state.view === id ? 'selected' : ''}" href="#/${id}"><span class="nav-index">0${index + 1}</span>${label}</a>`).join('')}</nav><div class="sidebar-bottom"><span class="status-dot"></span> ${useEmulators ? 'Local emulator data' : 'Production data'}<br><small>Read only</small></div></aside><main class="main"><header class="topbar"><span>ANALYTICS / ${escape(name.toUpperCase())}</span><button id="signout" class="text-button">Sign out</button></header><div class="content"><div class="page-header"><div><p class="eyebrow">WHYNOT ADMIN</p><h1>${escape(name)}</h1><p class="muted">${escape(subtitle)}</p></div><button id="refresh" class="outline">↻ Refresh</button></div><div id="view"></div></div></main></div>`;
   document.querySelector('#signout').onclick = () => signOut(auth);
-  document.querySelector('#refresh').onclick = () => load();
+  document.querySelector('#refresh').onclick = () => load(true);
   document.querySelector('#view').addEventListener('click', onAction);
   renderView();
 }
@@ -82,7 +88,7 @@ function onAction(event) {
   const button = event.target.closest('[data-action]');
   if (!button) return;
   const { action, value } = button.dataset;
-  if (action === 'retry') return load();
+  if (action === 'retry') return load(true);
   if (action === 'view') { location.hash = `/${value}`; return; }
   if (action === 'savedMetric') { state.savedMetric = value; renderView(); return; }
   if (action === 'months') { state.months = Number(value); state.hidden.clear(); load(); return; }
@@ -90,9 +96,21 @@ function onAction(event) {
   if (action === 'categoryToggle') { if (state.hidden.has(value)) state.hidden.delete(value); else if (state.hidden.size < state.data.categories.length - 1) state.hidden.add(value); renderView(); }
 }
 
-async function load() {
+async function load(fresh = false) {
   if (!state.user || !state.admin) return;
   const serial = ++state.serial;
+  if (fresh) {
+    clearCachedMetrics();
+    warmAnalyticsCache(db);
+  }
+  const key = viewKey();
+  if (viewCache.has(key)) {
+    state.data = viewCache.get(key);
+    state.loading = false;
+    state.error = null;
+    renderView();
+    return;
+  }
   state.loading = true; state.error = null; renderView();
   try {
     const params = {};
@@ -100,8 +118,12 @@ async function load() {
     if (state.view === 'demographic' && state.categoryId) params.categoryId = state.categoryId;
     const result = await loadAnalytics(db, state.view, params);
     if (serial !== state.serial) return;
+    viewCache.set(key, result);
     state.data = result;
-    if (state.view === 'demographic') state.categoryId = state.data.categoryId;
+    if (state.view === 'demographic') {
+      state.categoryId = result.categoryId;
+      viewCache.set(viewKey(), result);
+    }
   } catch (error) {
     if (serial !== state.serial) return;
     state.error = error.code === 'permission-denied'
@@ -118,6 +140,7 @@ function route() {
 window.addEventListener('hashchange', route);
 onAuthStateChanged(auth, async user => {
   state.serial++;
+  clearCachedMetrics();
   state.user = user; state.admin = false; state.data = null;
   if (!user) { signInView(); return; }
   app.innerHTML = '<div class="checking">Checking administrator access…</div>';
@@ -125,6 +148,7 @@ onAuthStateChanged(auth, async user => {
     const token = await user.getIdTokenResult(true);
     if (!token.claims.admin) { signInView('This account does not have administrator access.'); return; }
     state.admin = true;
+    warmAnalyticsCache(db);
     state.view = location.hash.match(/^#\/(saved|recommended|purchased|demographic)$/)?.[1] || 'saved';
     shell(); load();
   } catch { signInView('Could not verify administrator access. Check your connection.'); }

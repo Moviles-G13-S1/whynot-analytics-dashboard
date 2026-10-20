@@ -30,6 +30,8 @@ The definitions match the existing Flutter summary models. In particular, the de
 
 The dashboard reads `products`, `users`, `categories`, `cities`, and BQ3's `productEvents` with the Firebase Web SDK, then calculates the four views in `src/analytics.js`. It makes no Firestore writes. Firestore Security Rules allow these reads only for the same `admin: true` application role used by Flutter, except the public city catalog. This role is separate from Google Cloud project ownership.
 
+After sign-in, the dashboard loads these collections once and keeps the data and calculated views in memory while the session is open. Switching views or filters reuses that data. Use **Refresh** to fetch current Firestore data again; signing out also clears the cache.
+
 ## Backend setup and validation
 
 The sibling `whynot-back` repository must have the updated `productEvents` read rule deployed to `whynot-f4ae6` before BQ3 works. From that repository:

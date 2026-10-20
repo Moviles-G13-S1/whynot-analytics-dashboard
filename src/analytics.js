@@ -1,11 +1,34 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
 
 const ageLabels = ['13–17', '18–24', '25–34', '35–44', '45–54', '55+'];
+const collectionCache = new Map();
 
-async function readCollection(db, name, constraint) {
+export function clearAnalyticsCache() {
+  collectionCache.clear();
+}
+
+function readCollection(db, name, constraint) {
+  const key = constraint ? `${name}:recommendation_shown` : name;
+  const cached = collectionCache.get(key);
+  if (cached) return cached;
   const reference = collection(db, name);
-  const snapshot = await getDocs(constraint ? query(reference, constraint) : reference);
-  return snapshot.docs.map(document => [document.id, document.data()]);
+  const pending = getDocs(constraint ? query(reference, constraint) : reference)
+    .then(snapshot => snapshot.docs.map(document => [document.id, document.data()]));
+  collectionCache.set(key, pending);
+  pending.catch(() => {
+    if (collectionCache.get(key) === pending) collectionCache.delete(key);
+  });
+  return pending;
+}
+
+export function warmAnalyticsCache(db) {
+  return Promise.allSettled([
+    readCollection(db, 'products'),
+    readCollection(db, 'users'),
+    readCollection(db, 'categories'),
+    readCollection(db, 'cities'),
+    readCollection(db, 'productEvents', where('eventType', '==', 'recommendation_shown')),
+  ]);
 }
 
 export function savedSummary(products, profiles) {
