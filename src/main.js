@@ -6,11 +6,11 @@ import './style.css';
 
 const app = document.querySelector('#app');
 const views = [
-  ['saved', 'Saved products · BQ1/2/5', 'Saved products per user, repeat savers, and users with none'],
-  ['recommended', 'Recommended saves · BQ3', 'How many recommended products have been saved?'],
-  ['purchased', 'Purchase trends', 'Supporting view for BQ4 · Monthly purchases by category'],
+  ['saved', 'BQ1 · Saved products', 'Also answers BQ2 (repeat savers) and BQ5 (users with no saved products)'],
+  ['recommended', 'BQ3 · Recommended saves', 'How many recommended products have been saved?'],
+  ['purchased', 'BQ4 · Purchase trends', 'Supporting view · Monthly purchases by category'],
   ['bq4', 'BQ4 · Top category', 'Which category leads purchases each month?'],
-  ['demographic', 'Product owner profile', 'Supporting view for BQ6 · Owners of current products by category'],
+  ['demographic', 'BQ6 · Product owner profile', 'Supporting view · Owners of current products by category'],
   ['bq6', 'BQ6 · Buyer profile', 'Demographics of purchasers by category'],
 ];
 const state = { view: 'saved', months: 6, categoryId: null, bq6CategoryId: null, savedMetric: 'percentage', hidden: new Set(), user: null, admin: false, data: null, loading: false, error: null, serial: 0 };
@@ -25,7 +25,7 @@ const number = value => Number(value || 0).toLocaleString('en-US');
 const pill = (label, active, action, value) => `<button class="pill ${active ? 'active' : ''}" data-action="${action}" data-value="${escape(value)}">${escape(label)}</button>`;
 const card = (body, extra = '') => `<section class="card ${extra}">${body}</section>`;
 const title = (text, subtitle = '') => `<div class="section-heading"><h2>${escape(text)}</h2>${subtitle ? `<p>${escape(subtitle)}</p>` : ''}</div>`;
-const supportingNote = (bq, explanation, target) => card(`<p class="eyebrow">SUPPORTING VIEW · ${bq}</p><p class="muted">${explanation}</p>${pill(`Open ${bq} answer`, false, 'view', target)}`, 'supporting-note');
+const supportingNote = (bq, name, explanation, target) => card(`<p class="eyebrow">${bq} · ${name.toUpperCase()}</p><small>Supporting view</small><p class="muted">${explanation}</p>${pill(`Open ${bq} answer`, false, 'view', target)}`, 'supporting-note');
 const shortMonth = month => { const [year, m] = month.split('-').map(Number); return new Intl.DateTimeFormat('en', { month: 'short' }).format(new Date(year, m - 1, 1)); };
 
 function signInView(message = '') {
@@ -75,7 +75,7 @@ function renderSaved(d) {
     return `<div class="bar-col"><span>${label}</span><div class="bar-track"><div class="bar" style="height:${Math.max(0, value / max * 100)}%"></div></div><small>${labels[i]}</small></div>`;
   }).join('');
 
-  return `<div class="segment-row">${pill('Saved products', true, 'view', 'saved')}${pill('Recommended · BQ3', false, 'view', 'recommended')}</div>
+  return `<div class="segment-row">${pill('BQ1 · Saved products', true, 'view', 'saved')}${pill('BQ3 · Recommended saves', false, 'view', 'recommended')}</div>
     <div class="kpis">
       ${card(`<p class="eyebrow">BQ1 · PRODUCTS SAVED PER USER</p><div class="big">${Number(d.averagePerActiveUser).toFixed(1)}</div><small>Average per active user · ${number(d.activeUsers)} active users</small>`)}
       ${card(`<p class="eyebrow">BQ2 · USERS WHO SAVED AGAIN</p><div class="big">${number(d.multipleProductUsers)}</div><small>Users with 2 or more current products · ${number(d.singleProductUsers)} have 1</small>`)}
@@ -88,7 +88,7 @@ function renderSaved(d) {
 }
 
 function renderRecommended(d) {
-  return `<div class="segment-row">${pill('Saved products · BQ1/2/5', false, 'view', 'saved')}${pill('Recommended', true, 'view', 'recommended')}</div>
+  return `<div class="segment-row">${pill('BQ1 · Saved products', false, 'view', 'saved')}${pill('BQ3 · Recommended saves', true, 'view', 'recommended')}</div>
     ${card(`<p class="eyebrow">BQ3 · RECOMMENDED PRODUCTS SAVED</p><div class="big">${number(d.total)}</div><small>Successful saves from recommendations</small>`, 'metric-card')}
     <div class="explanation">${title('How many recommended products have been saved?')}<p>This is a historical count of successful recommendation saves. Manual saves are excluded, and deleting a saved product later does not reduce the count.</p></div>`;
 }
@@ -96,10 +96,10 @@ function renderPurchased(d) {
   const ids = d.categories.map(c => c.categoryId);
   const visible = ids.filter(id => !state.hidden.has(id));
   const chart = d.months.map((month, i) => `<div class="stack-col"><div class="stack" aria-label="${escape(month)}: ${number(d.monthlyTotals[i])} purchases">${d.categories.filter(c => visible.includes(c.categoryId)).map((c, j) => { const count = c.monthlyCounts[i]; const pct = count / d.chartMaximum * 100; return count ? `<button class="stack-part color-${ids.indexOf(c.categoryId) % 8}" style="height:${pct}%" title="${escape(c.categoryId)} · ${number(count)} of ${number(d.monthlyTotals[i])} purchases · ${escape(month)}" aria-label="${escape(c.categoryId)}: ${number(count)} of ${number(d.monthlyTotals[i])} purchases in ${escape(month)}"></button>` : ''; }).join('')}</div><small>${shortMonth(month)}<br>${month.slice(0, 4)}</small></div>`).join('');
-  return `${supportingNote("BQ4", "This chart shows purchase counts by category over time. The BQ4 answer ranks the leading category for each month and shows ties.", "bq4")}${card(`<p class="eyebrow">CURRENT MONTH · ${escape(shortMonth(d.months.at(-1).toUpperCase()))}</p><p class="muted">Previous: ${number(d.previousMonthCount)}</p><div class="big">${number(d.currentMonthCount)}</div><small>products purchased</small>`, 'metric-card')}<div class="segment-row">${[6,12,24].map(m => pill(`${m} months`, state.months === m, 'months', m)).join('')}</div>${card(`<p class="eyebrow">PURCHASED BY MONTH</p><p class="muted">Existing purchased products</p><div class="stack-chart">${chart}</div><div class="legend">${ids.map((id, i) => `<button data-action="categoryToggle" data-value="${escape(id)}" class="legend-item ${state.hidden.has(id) ? 'muted-item' : ''}"><i class="color-${i % 8}"></i>${escape(id)}</button>`).join('')}</div><p class="muted">${ids.length ? 'Select a category to hide/show · Hover a segment for details' : 'No purchases in this period'}</p>`, 'wide-card')}`;
+  return `${supportingNote("BQ4", "Purchase trends", "This chart shows purchase counts by category over time. The BQ4 answer ranks the leading category for each month and shows ties.", "bq4")}${card(`<p class="eyebrow">CURRENT MONTH · ${escape(shortMonth(d.months.at(-1).toUpperCase()))}</p><p class="muted">Previous: ${number(d.previousMonthCount)}</p><div class="big">${number(d.currentMonthCount)}</div><small>products purchased</small>`, 'metric-card')}<div class="segment-row">${[6,12,24].map(m => pill(`${m} months`, state.months === m, 'months', m)).join('')}</div>${card(`<p class="eyebrow">PURCHASED BY MONTH</p><p class="muted">Existing purchased products</p><div class="stack-chart">${chart}</div><div class="legend">${ids.map((id, i) => `<button data-action="categoryToggle" data-value="${escape(id)}" class="legend-item ${state.hidden.has(id) ? 'muted-item' : ''}"><i class="color-${i % 8}"></i>${escape(id)}</button>`).join('')}</div><p class="muted">${ids.length ? 'Select a category to hide/show · Hover a segment for details' : 'No purchases in this period'}</p>`, 'wide-card')}`;
 }
 function renderDemographic(d) {
-  const note = supportingNote("BQ6", "These charts describe owners of current products, including products not yet purchased. The BQ6 answer describes buyers of purchased products by category.", "bq6");
+  const note = supportingNote("BQ6", "Product owner profile", "These charts describe owners of current products, including products not yet purchased. The BQ6 answer describes buyers of purchased products by category.", "bq6");
   if (!d.categories.length) return note + card('<div class="empty">No categories found.</div>');
   const ageMax = Math.max(1, ...d.ages.map(x => x.count));
   const cityMax = Math.max(1, ...d.cities.map(x => x.count));
