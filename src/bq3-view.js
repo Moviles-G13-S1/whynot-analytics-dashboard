@@ -20,7 +20,8 @@ export function renderBq3(data) {
     ${card(`<p class="eyebrow">DISTINCT SAVERS</p><div class="big">${number(data.distinctSavers)}</div><small>Users who saved at least one recommendation</small>`)}
   </div>`;
   const months = data.monthlySaves.map(month => `<div class="bq-rank-row"><span>${escape(month.label)}</span><div class="bq-track"><div style="width:${Number(month.barPercent)}%"></div></div><strong>${number(month.count)}</strong></div>`).join('');
-  const history = card(`<p class="eyebrow">BQ3 · MONTHLY SAVES</p><h2>Last six months</h2><p class="muted">Successful recommendation saves by save date · America/Bogota</p><div class="bq-breakdown">${months}</div><p class="muted">${number(data.undatedSaves)} all-time saves have no usable date and are excluded from this chart.</p>`, 'wide-card');
+  const undatedNote = data.undatedSaves ? `<p class="muted">Undated successful saves: ${number(data.undatedSaves)} · Included in the all-time total, excluded from this chart.</p>` : '';
+  const history = card(`<p class="eyebrow">BQ3 · MONTHLY SAVES</p><h2>Last six months</h2><p class="muted">Successful recommendation saves by save date · America/Bogota</p><div class="bq-breakdown">${months}</div>${undatedNote}`, 'wide-card');
 
   return `${navigation}${summary}${history}${explanation}`;
 }

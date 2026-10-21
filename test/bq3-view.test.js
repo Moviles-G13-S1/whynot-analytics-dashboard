@@ -22,7 +22,7 @@ test('BQ3 displays backend totals, rate, and monthly bar values without deriving
   assert.match(html, /DISTINCT SAVERS.*?2/s);
   assert.match(html, /Sep 2026.*?width:50%.*?1/s);
   assert.match(html, /Oct 2026.*?width:100%.*?2/s);
-  assert.match(html, /1 all-time saves have no usable date/);
+  assert.match(html, /Undated successful saves: 1/);
 });
 
 test('BQ3 keeps the all-time total visible while older backends return only total', () => {
