@@ -1,6 +1,7 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { adminAnalytics, auth, useEmulators } from './firebase.js';
 import { clearAnalyticsCache, loadAnalytics, warmAnalyticsCache } from './analytics.js';
+import { renderBq3 } from './bq3-view.js';
 import { renderBq4, renderBq6 } from './bq-views.js';
 import './style.css';
 
@@ -61,7 +62,7 @@ function renderView() {
   if (state.loading) { root.innerHTML = card('<div class="empty">Loading production analytics…</div>'); return; }
   if (state.error) { root.innerHTML = card(`<div class="empty"><h2>Could not load this metric</h2><p>${escape(state.error)}</p><button class="outline" data-action="retry">Try again</button></div>`); return; }
   if (!state.data) { root.innerHTML = ''; return; }
-  root.innerHTML = ({ saved: renderSaved, recommended: renderRecommended, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId) })[state.view](state.data);
+  root.innerHTML = ({ saved: renderSaved, recommended: renderBq3, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId) })[state.view](state.data);
 }
 
 function renderSaved(d) {
@@ -87,11 +88,6 @@ function renderSaved(d) {
     ${card(`<p class="eyebrow">BQ1 · SAVED PRODUCT DISTRIBUTION</p>${title('How many products has a user saved?', 'Current products grouped by owner')}<div class="segment-row">${pill('Users', users, 'savedMetric', 'users')}${pill('% users', !users, 'savedMetric', 'percentage')}</div><div class="bar-chart">${distribution}</div><p class="chart-axis">Saved products per user</p><p class="muted">${number(d.activeUsers)} active users · The distribution excludes users with zero products; BQ5 counts them above.</p>`, 'wide-card')}`;
 }
 
-function renderRecommended(d) {
-  return `<div class="segment-row">${pill('BQ1 · Saved products', false, 'view', 'saved')}${pill('BQ3 · Recommended saves', true, 'view', 'recommended')}</div>
-    ${card(`<p class="eyebrow">BQ3 · RECOMMENDED PRODUCTS SAVED</p><div class="big">${number(d.total)}</div><small>Successful saves from recommendations</small>`, 'metric-card')}
-    <div class="explanation">${title('How many recommended products have been saved?')}<p>This is a historical count of successful recommendation saves. Manual saves are excluded, and deleting a saved product later does not reduce the count.</p></div>`;
-}
 function renderPurchased(d) {
   const ids = d.categories.map(c => c.categoryId);
   const visible = ids.filter(id => !state.hidden.has(id));
