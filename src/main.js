@@ -1,18 +1,22 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { adminAnalytics, auth, useEmulators } from './firebase.js';
 import { clearAnalyticsCache, loadAnalytics, warmAnalyticsCache } from './analytics.js';
+import { renderBq3 } from './bq3-view.js';
+import { renderBq4, renderBq6 } from './bq-views.js';
 import './style.css';
 
 const app = document.querySelector('#app');
 const views = [
-  ['saved', 'Saved products', 'How many products has a user saved?'],
-  ['recommended', 'Recommended products', 'How many recommended products have been saved?'],
-  ['purchased', 'Purchased products', 'By month and category'],
-  ['demographic', 'Demographic profile', 'Audience insights by product category'],
+  ['saved', 'BQ1 · Saved products', 'Also answers BQ2 (repeat savers) and BQ5 (users with no saved products)'],
+  ['recommended', 'BQ3 · Recommended saves', 'How many recommended products have been saved?'],
+  ['purchased', 'BQ4 · Purchase trends', 'Supporting view · Monthly purchases by category'],
+  ['bq4', 'BQ4 · Top category', 'Which category leads purchases each month?'],
+  ['demographic', 'BQ6 · Product owner profile', 'Supporting view · Owners of current products by category'],
+  ['bq6', 'BQ6 · Buyer profile', 'Demographics of purchasers by category'],
 ];
-const state = { view: 'saved', months: 6, categoryId: null, savedMetric: 'percentage', hidden: new Set(), user: null, admin: false, data: null, loading: false, error: null, serial: 0 };
+const state = { view: 'saved', months: 6, categoryId: null, bq6CategoryId: null, savedMetric: 'percentage', hidden: new Set(), user: null, admin: false, data: null, loading: false, error: null, serial: 0 };
 const viewCache = new Map();
-const viewKey = () => `${state.view}:${state.view === 'purchased' ? state.months : state.view === 'demographic' ? state.categoryId ?? '' : ''}`;
+const viewKey = () => `${state.view}:${state.view === 'purchased' || state.view === 'bq4' ? state.months : state.view === 'demographic' ? state.categoryId ?? '' : ''}`;
 function clearCachedMetrics() {
   viewCache.clear();
   clearAnalyticsCache();
@@ -22,6 +26,7 @@ const number = value => Number(value || 0).toLocaleString('en-US');
 const pill = (label, active, action, value) => `<button class="pill ${active ? 'active' : ''}" data-action="${action}" data-value="${escape(value)}">${escape(label)}</button>`;
 const card = (body, extra = '') => `<section class="card ${extra}">${body}</section>`;
 const title = (text, subtitle = '') => `<div class="section-heading"><h2>${escape(text)}</h2>${subtitle ? `<p>${escape(subtitle)}</p>` : ''}</div>`;
+const supportingNote = (bq, name, explanation, target) => card(`<p class="eyebrow">${bq} · ${name.toUpperCase()}</p><small>Supporting view</small><p class="muted">${explanation}</p>${pill(`Open ${bq} answer`, false, 'view', target)}`, 'supporting-note');
 const shortMonth = month => { const [year, m] = month.split('-').map(Number); return new Intl.DateTimeFormat('en', { month: 'short' }).format(new Date(year, m - 1, 1)); };
 
 function signInView(message = '') {
@@ -57,7 +62,7 @@ function renderView() {
   if (state.loading) { root.innerHTML = card('<div class="empty">Loading production analytics…</div>'); return; }
   if (state.error) { root.innerHTML = card(`<div class="empty"><h2>Could not load this metric</h2><p>${escape(state.error)}</p><button class="outline" data-action="retry">Try again</button></div>`); return; }
   if (!state.data) { root.innerHTML = ''; return; }
-  root.innerHTML = ({ saved: renderSaved, recommended: renderRecommended, purchased: renderPurchased, demographic: renderDemographic })[state.view](state.data);
+  root.innerHTML = ({ saved: renderSaved, recommended: renderBq3, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId) })[state.view](state.data);
 }
 
 function renderSaved(d) {
@@ -65,23 +70,37 @@ function renderSaved(d) {
   const counts = d.distributionCounts;
   const users = state.savedMetric === 'users';
   const max = users ? Math.max(3, Math.ceil(d.activeUsers / 3) * 3) : 1;
-  return `<div class="segment-row">${pill('Saved products', true, 'view', 'saved')}${pill('Recommended', false, 'view', 'recommended')}</div><div class="kpis">${card(`<p class="eyebrow">AVERAGE</p><div class="big">${Number(d.averagePerActiveUser).toFixed(1)}</div><p class="muted">per active user</p>`)}${card(`<p class="eyebrow">1 PRODUCT VS. 2+ PRODUCTS</p><div class="pair"><strong>${number(d.singleProductUsers)}</strong><span></span><strong>${number(d.multipleProductUsers)}</strong></div>`)}</div><div class="kpis">${card(`<p>Products currently saved</p><small>Deleted products are excluded</small><div class="big">${number(d.totalProducts)}</div><small>${number(d.activeUsers)} active users</small>`)}${card(`<p>Users with 0 products</p><small>Activation opportunity</small><div class="big">${number(d.zeroProductUsers)}</div>`)}</div>${card(`${title('Distribution')}<div class="segment-row">${pill('Users', users, 'savedMetric', 'users')}${pill('% users', !users, 'savedMetric', 'percentage')}</div><div class="bar-chart">${counts.map((count, i) => { const value = users ? count : d.activeUsers ? count / d.activeUsers : 0; const label = users ? number(count) : `${Math.round(value * 100)}%`; return `<div class="bar-col"><span>${label}</span><div class="bar-track"><div class="bar" style="height:${Math.max(0, value / max * 100)}%"></div></div><small>${labels[i]}</small></div>`; }).join('')}</div><p class="chart-axis">Saved products per user</p><p class="muted">${number(d.activeUsers)} active users · Current products</p><p>The distribution includes active users only.</p>`, 'wide-card')}`;
+  const distribution = counts.map((count, i) => {
+    const value = users ? count : d.activeUsers ? count / d.activeUsers : 0;
+    const label = users ? number(count) : `${Math.round(value * 100)}%`;
+    return `<div class="bar-col"><span>${label}</span><div class="bar-track"><div class="bar" style="height:${Math.max(0, value / max * 100)}%"></div></div><small>${labels[i]}</small></div>`;
+  }).join('');
+
+  return `<div class="segment-row">${pill('BQ1 · Saved products', true, 'view', 'saved')}${pill('BQ3 · Recommended saves', false, 'view', 'recommended')}</div>
+    <div class="kpis">
+      ${card(`<p class="eyebrow">BQ1 · PRODUCTS SAVED PER USER</p><div class="big">${Number(d.averagePerActiveUser).toFixed(1)}</div><small>Average per active user · ${number(d.activeUsers)} active users</small>`)}
+      ${card(`<p class="eyebrow">BQ2 · USERS WHO SAVED AGAIN</p><div class="big">${number(d.multipleProductUsers)}</div><small>Users with 2 or more current products · ${number(d.singleProductUsers)} have 1</small>`)}
+    </div>
+    <div class="kpis">
+      ${card(`<p class="eyebrow">CURRENT PRODUCTS SAVED</p><div class="big">${number(d.totalProducts)}</div><small>Deleted products are excluded</small>`)}
+      ${card(`<p class="eyebrow">BQ5 · USERS WITH ZERO PRODUCTS</p><div class="big">${number(d.zeroProductUsers)}</div><small>Registered users with no current products saved</small>`)}
+    </div>
+    ${card(`<p class="eyebrow">BQ1 · SAVED PRODUCT DISTRIBUTION</p>${title('How many products has a user saved?', 'Current products grouped by owner')}<div class="segment-row">${pill('Users', users, 'savedMetric', 'users')}${pill('% users', !users, 'savedMetric', 'percentage')}</div><div class="bar-chart">${distribution}</div><p class="chart-axis">Saved products per user</p><p class="muted">${number(d.activeUsers)} active users · The distribution excludes users with zero products; BQ5 counts them above.</p>`, 'wide-card')}`;
 }
-function renderRecommended(d) {
-  return `<div class="segment-row">${pill('Saved products', false, 'view', 'saved')}${pill('Recommended', true, 'view', 'recommended')}</div>${card(`<p class="eyebrow">RECOMMENDED PRODUCTS SAVED</p><div class="big">${number(d.total)}</div><small>total successful saves</small>`, 'metric-card')}<div class="explanation">${title('About this metric')}<p>This value only counts products saved through the recommendation feature. Manual product saves are not included.</p></div>`;
-}
+
 function renderPurchased(d) {
   const ids = d.categories.map(c => c.categoryId);
   const visible = ids.filter(id => !state.hidden.has(id));
   const chart = d.months.map((month, i) => `<div class="stack-col"><div class="stack" aria-label="${escape(month)}: ${number(d.monthlyTotals[i])} purchases">${d.categories.filter(c => visible.includes(c.categoryId)).map((c, j) => { const count = c.monthlyCounts[i]; const pct = count / d.chartMaximum * 100; return count ? `<button class="stack-part color-${ids.indexOf(c.categoryId) % 8}" style="height:${pct}%" title="${escape(c.categoryId)} · ${number(count)} of ${number(d.monthlyTotals[i])} purchases · ${escape(month)}" aria-label="${escape(c.categoryId)}: ${number(count)} of ${number(d.monthlyTotals[i])} purchases in ${escape(month)}"></button>` : ''; }).join('')}</div><small>${shortMonth(month)}<br>${month.slice(0, 4)}</small></div>`).join('');
-  return `${card(`<p class="eyebrow">CURRENT MONTH · ${escape(shortMonth(d.months.at(-1).toUpperCase()))}</p><p class="muted">Previous: ${number(d.previousMonthCount)}</p><div class="big">${number(d.currentMonthCount)}</div><small>products purchased</small>`, 'metric-card')}<div class="segment-row">${[6,12,24].map(m => pill(`${m} months`, state.months === m, 'months', m)).join('')}</div>${card(`<p class="eyebrow">PURCHASED BY MONTH</p><p class="muted">Existing purchased products</p><div class="stack-chart">${chart}</div><div class="legend">${ids.map((id, i) => `<button data-action="categoryToggle" data-value="${escape(id)}" class="legend-item ${state.hidden.has(id) ? 'muted-item' : ''}"><i class="color-${i % 8}"></i>${escape(id)}</button>`).join('')}</div><p class="muted">${ids.length ? 'Select a category to hide/show · Hover a segment for details' : 'No purchases in this period'}</p>`, 'wide-card')}`;
+  return `${supportingNote("BQ4", "Purchase trends", "This chart shows purchase counts by category over time. The BQ4 answer ranks the leading category for each month and shows ties.", "bq4")}${card(`<p class="eyebrow">CURRENT MONTH · ${escape(shortMonth(d.months.at(-1).toUpperCase()))}</p><p class="muted">Previous: ${number(d.previousMonthCount)}</p><div class="big">${number(d.currentMonthCount)}</div><small>products purchased</small>`, 'metric-card')}<div class="segment-row">${[6,12,24].map(m => pill(`${m} months`, state.months === m, 'months', m)).join('')}</div>${card(`<p class="eyebrow">PURCHASED BY MONTH</p><p class="muted">Existing purchased products</p><div class="stack-chart">${chart}</div><div class="legend">${ids.map((id, i) => `<button data-action="categoryToggle" data-value="${escape(id)}" class="legend-item ${state.hidden.has(id) ? 'muted-item' : ''}"><i class="color-${i % 8}"></i>${escape(id)}</button>`).join('')}</div><p class="muted">${ids.length ? 'Select a category to hide/show · Hover a segment for details' : 'No purchases in this period'}</p>`, 'wide-card')}`;
 }
 function renderDemographic(d) {
-  if (!d.categories.length) return card('<div class="empty">No categories found.</div>');
+  const note = supportingNote("BQ6", "Product owner profile", "These charts describe owners of current products, including products not yet purchased. The BQ6 answer describes buyers of purchased products by category.", "bq6");
+  if (!d.categories.length) return note + card('<div class="empty">No categories found.</div>');
   const ageMax = Math.max(1, ...d.ages.map(x => x.count));
   const cityMax = Math.max(1, ...d.cities.map(x => x.count));
   const selected = d.categories.find(x => x.id === d.categoryId)?.name || d.categoryId;
-  return `<div class="segment-row wrap">${d.categories.map(c => pill(c.name, c.id === d.categoryId, 'category', c.id)).join('')}</div><div class="two-col">${card(`<div class="heading-line"><p class="eyebrow">AGE</p><span>Median age <strong>${escape(d.medianAge)}</strong></span></div><div class="bar-chart age-chart">${d.ages.map(g => `<div class="bar-col"><span>${number(g.percent)}%</span><div class="bar-track"><div class="bar" style="height:${g.count / ageMax * 100}%"></div></div><small>${escape(g.label)}</small></div>`).join('')}</div>`)}${card(`<p class="eyebrow">GENDER</p><div class="gender-strip">${d.genders.map((g, i) => g.count ? `<div class="gender-${i}" style="flex:${g.count}"></div>` : '').join('') || '<div style="flex:1"></div>'}</div><div class="legend">${d.genders.map((g,i) => `<span class="legend-item"><i class="gender-${i}"></i>${escape(g.label)} ${number(g.percent)}%</span>`).join('')}</div>`)}</div>${card(`<div class="heading-line"><p class="eyebrow">TOP CITIES</p><span>Share of ${escape(selected)} users</span></div><div class="city-list">${d.cities.map(c => `<div class="city-row"><span>${escape(c.label)}</span><div class="city-track"><div style="width:${c.count / cityMax * 100}%"></div></div><strong>${number(c.percent)}%</strong></div>`).join('')}</div><p class="muted">${number(d.userCount)} ${d.userCount === 1 ? 'user' : 'users'} with a current product in ${escape(selected)}</p>`, 'wide-card')}`;
+  return `${note}<div class="segment-row wrap">${d.categories.map(c => pill(c.name, c.id === d.categoryId, 'category', c.id)).join('')}</div><div class="two-col">${card(`<div class="heading-line"><p class="eyebrow">AGE</p><span>Median age <strong>${escape(d.medianAge)}</strong></span></div><div class="bar-chart age-chart">${d.ages.map(g => `<div class="bar-col"><span>${number(g.percent)}%</span><div class="bar-track"><div class="bar" style="height:${g.count / ageMax * 100}%"></div></div><small>${escape(g.label)}</small></div>`).join('')}</div>`)}${card(`<p class="eyebrow">GENDER</p><div class="gender-strip">${d.genders.map((g, i) => g.count ? `<div class="gender-${i}" style="flex:${g.count}"></div>` : '').join('') || '<div style="flex:1"></div>'}</div><div class="legend">${d.genders.map((g,i) => `<span class="legend-item"><i class="gender-${i}"></i>${escape(g.label)} ${number(g.percent)}%</span>`).join('')}</div>`)}</div>${card(`<div class="heading-line"><p class="eyebrow">TOP CITIES</p><span>Share of ${escape(selected)} users</span></div><div class="city-list">${d.cities.map(c => `<div class="city-row"><span>${escape(c.label)}</span><div class="city-track"><div style="width:${c.count / cityMax * 100}%"></div></div><strong>${number(c.percent)}%</strong></div>`).join('')}</div><p class="muted">${number(d.userCount)} ${d.userCount === 1 ? 'user' : 'users'} with a current product in ${escape(selected)}</p>`, 'wide-card')}`;
 }
 
 function onAction(event) {
@@ -93,6 +112,7 @@ function onAction(event) {
   if (action === 'savedMetric') { state.savedMetric = value; renderView(); return; }
   if (action === 'months') { state.months = Number(value); state.hidden.clear(); load(); return; }
   if (action === 'category') { state.categoryId = value; load(); return; }
+  if (action === 'bq6Category') { state.bq6CategoryId = value; renderView(); return; }
   if (action === 'categoryToggle') { if (state.hidden.has(value)) state.hidden.delete(value); else if (state.hidden.size < state.data.categories.length - 1) state.hidden.add(value); renderView(); }
 }
 
@@ -114,7 +134,7 @@ async function load(fresh = false) {
   state.loading = true; state.error = null; renderView();
   try {
     const params = {};
-    if (state.view === 'purchased') params.months = state.months;
+    if (state.view === 'purchased' || state.view === 'bq4') params.months = state.months;
     if (state.view === 'demographic' && state.categoryId) params.categoryId = state.categoryId;
     const result = await loadAnalytics(adminAnalytics, state.view, params);
     if (serial !== state.serial) return;
@@ -133,7 +153,7 @@ async function load(fresh = false) {
   } finally { if (serial === state.serial) { state.loading = false; renderView(); } }
 }
 function route() {
-  const view = location.hash.match(/^#\/(saved|recommended|purchased|demographic)$/)?.[1] || 'saved';
+  const view = location.hash.match(/^#\/(saved|recommended|purchased|bq4|demographic|bq6)$/)?.[1] || 'saved';
   if (state.view !== view) { state.view = view; state.data = null; state.error = null; state.hidden.clear(); }
   if (state.admin) { shell(); load(); }
 }
@@ -149,7 +169,7 @@ onAuthStateChanged(auth, async user => {
     if (!token.claims.admin) { signInView('This account does not have administrator access.'); return; }
     state.admin = true;
     warmAnalyticsCache(adminAnalytics);
-    state.view = location.hash.match(/^#\/(saved|recommended|purchased|demographic)$/)?.[1] || 'saved';
+    state.view = location.hash.match(/^#\/(saved|recommended|purchased|bq4|demographic|bq6)$/)?.[1] || 'saved';
     shell(); load();
   } catch { signInView('Could not verify administrator access. Check your connection.'); }
 });

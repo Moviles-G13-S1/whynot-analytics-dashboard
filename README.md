@@ -21,16 +21,18 @@ If sign-in is rejected despite correct credentials, check that Email/Password si
 
 | View | Information and controls | Data used by the backend |
 | --- | --- | --- |
-| Saved products | Average per active user; one versus two or more products; current products; active users; zero-product users; 1–5, 6–10, 11–20, 21–50, 51+ distribution; Users / % users toggle | `products`, `users` |
-| Recommended products | Total successful recommendation saves | `productEvents` with `recommendation_shown`, `savedAt`, and `savedProductId` |
-| Purchased products | Current and previous month counts, 6 / 12 / 24 month stacked chart, category visibility and segment detail | `products` with `purchased` and `purchasedAt` |
-| Demographic profile | Category selector, median age, age bands, gender shares, top cities and other/unknown | Current `products` owners, `users`, `categories`, `cities` |
+| Saved products (BQ1, BQ2, BQ5) | Average per active user; one versus two or more products; current products; active users; zero-product users; 1–5, 6–10, 11–20, 21–50, 51+ distribution; Users / % users toggle | `products`, `users` |
+| Recommended saves (BQ3) | All-time successful saves, recommendations shown, save rate, distinct savers, and six monthly save counts | `productEvents` with `recommendation_shown`, `userId`, `savedAt`, and `savedProductId` |
+| Purchase trends (supports BQ4) | Current and previous month counts, 6 / 12 / 24 month stacked chart, category visibility, segment detail, and a link to the exact BQ4 answer | Current `products` with `purchased` and `purchasedAt` |
+| BQ4 · Top category | Exact highest purchased-product category for each month, including ties; category breakdown, overall leader, and undated purchases | Backend `bq4` result from purchased `products` and `categories` |
+| Product owner profile (supports BQ6) | Category selector, median age, age bands, gender shares, top cities, other/unknown, and a link to the purchased-buyer BQ6 answer | Current `products` owners, `users`, `categories`, `cities` |
+| BQ6 · Buyer profile | Distinct purchased-product buyers by category, median age, age groups, gender shares, and top cities | Backend `bq6` result from purchased `products`, buyer `users`, `categories`, `cities` |
 
-The definitions preserve the existing metric meanings. In particular, the demographic screen describes owners of current products in a category, even if those products have not been marked purchased. Purchase month boundaries use `America/Bogota`. BQ3 is a historical event count, so deleting the saved product later does not reduce it; the legacy `adminMetrics/recommendedProductSaves` document is not used.
+The views label the BQ each metric answers. The Saved products view identifies BQ1 (average and distribution of current products per active user), BQ2 (users with at least two current products), and BQ5 (registered users with none). The supporting Product owner profile describes owners of current products, including unpurchased products; BQ6 describes buyers of purchased products. The Purchase trends chart shows category counts; BQ4 identifies the actual leader for each month. Purchase month boundaries use `America/Bogota`. BQ3 is a historical event count, so deleting the saved product later does not reduce it; the legacy `adminMetrics/recommendedProductSaves` document is not used.
 
-The dashboard calls `get_admin_analytics({ metric, params })` through the Firebase Web SDK and renders its processed `data` result. The backend reads `products`, `users`, `categories`, `cities`, and BQ3's `productEvents` with the Admin SDK and performs all metric calculations. The dashboard makes no Firestore writes. Firebase Authentication's `admin: true` custom claim protects the callable; this role is separate from Google Cloud project ownership.
+The dashboard calls `get_admin_analytics({ metric, params })` through the Firebase Web SDK and renders its processed `data` result. The backend reads `products`, `users`, `categories`, `cities`, and BQ3's `productEvents` with the Admin SDK and performs all metric calculations, including BQ3's save rate, distinct-user count, monthly buckets, and chart widths. The dashboard makes no Firestore writes. Firebase Authentication's `admin: true` custom claim protects the callable; this role is separate from Google Cloud project ownership.
 
-After sign-in, the dashboard preloads the four default processed views and keeps callable results in memory while the session is open. Switching to a loaded view reuses that result; changing filters requests a new result from the backend. Use **Refresh** to fetch current backend results again; signing out also clears the cache.
+After sign-in, the dashboard preloads the six default processed views and keeps callable results in memory while the session is open. Switching to a loaded view reuses that result; changing the BQ4 month window requests a new result from the backend, while selecting a BQ6 category renders its already returned profile. Use **Refresh** to fetch current backend results again; signing out also clears the cache.
 
 ## Backend setup and validation
 
