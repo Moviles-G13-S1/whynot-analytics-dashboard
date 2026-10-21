@@ -1,18 +1,21 @@
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { adminAnalytics, auth, useEmulators } from './firebase.js';
 import { clearAnalyticsCache, loadAnalytics, warmAnalyticsCache } from './analytics.js';
+import { renderBq4, renderBq6 } from './bq-views.js';
 import './style.css';
 
 const app = document.querySelector('#app');
 const views = [
   ['saved', 'Saved products', 'How many products has a user saved?'],
   ['recommended', 'Recommended products', 'How many recommended products have been saved?'],
-  ['purchased', 'Purchased products', 'By month and category'],
-  ['demographic', 'Demographic profile', 'Audience insights by product category'],
+  ['purchased', 'Purchase trends', 'Monthly purchases by category'],
+  ['bq4', 'BQ4 · Top category', 'Which category leads purchases each month?'],
+  ['demographic', 'Product owner profile', 'Owners of current products by category'],
+  ['bq6', 'BQ6 · Buyer profile', 'Demographics of purchasers by category'],
 ];
-const state = { view: 'saved', months: 6, categoryId: null, savedMetric: 'percentage', hidden: new Set(), user: null, admin: false, data: null, loading: false, error: null, serial: 0 };
+const state = { view: 'saved', months: 6, categoryId: null, bq6CategoryId: null, savedMetric: 'percentage', hidden: new Set(), user: null, admin: false, data: null, loading: false, error: null, serial: 0 };
 const viewCache = new Map();
-const viewKey = () => `${state.view}:${state.view === 'purchased' ? state.months : state.view === 'demographic' ? state.categoryId ?? '' : ''}`;
+const viewKey = () => `${state.view}:${state.view === 'purchased' || state.view === 'bq4' ? state.months : state.view === 'demographic' ? state.categoryId ?? '' : ''}`;
 function clearCachedMetrics() {
   viewCache.clear();
   clearAnalyticsCache();
@@ -57,7 +60,7 @@ function renderView() {
   if (state.loading) { root.innerHTML = card('<div class="empty">Loading production analytics…</div>'); return; }
   if (state.error) { root.innerHTML = card(`<div class="empty"><h2>Could not load this metric</h2><p>${escape(state.error)}</p><button class="outline" data-action="retry">Try again</button></div>`); return; }
   if (!state.data) { root.innerHTML = ''; return; }
-  root.innerHTML = ({ saved: renderSaved, recommended: renderRecommended, purchased: renderPurchased, demographic: renderDemographic })[state.view](state.data);
+  root.innerHTML = ({ saved: renderSaved, recommended: renderRecommended, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId) })[state.view](state.data);
 }
 
 function renderSaved(d) {
@@ -93,6 +96,7 @@ function onAction(event) {
   if (action === 'savedMetric') { state.savedMetric = value; renderView(); return; }
   if (action === 'months') { state.months = Number(value); state.hidden.clear(); load(); return; }
   if (action === 'category') { state.categoryId = value; load(); return; }
+  if (action === 'bq6Category') { state.bq6CategoryId = value; renderView(); return; }
   if (action === 'categoryToggle') { if (state.hidden.has(value)) state.hidden.delete(value); else if (state.hidden.size < state.data.categories.length - 1) state.hidden.add(value); renderView(); }
 }
 
@@ -114,7 +118,7 @@ async function load(fresh = false) {
   state.loading = true; state.error = null; renderView();
   try {
     const params = {};
-    if (state.view === 'purchased') params.months = state.months;
+    if (state.view === 'purchased' || state.view === 'bq4') params.months = state.months;
     if (state.view === 'demographic' && state.categoryId) params.categoryId = state.categoryId;
     const result = await loadAnalytics(adminAnalytics, state.view, params);
     if (serial !== state.serial) return;
@@ -133,7 +137,7 @@ async function load(fresh = false) {
   } finally { if (serial === state.serial) { state.loading = false; renderView(); } }
 }
 function route() {
-  const view = location.hash.match(/^#\/(saved|recommended|purchased|demographic)$/)?.[1] || 'saved';
+  const view = location.hash.match(/^#\/(saved|recommended|purchased|bq4|demographic|bq6)$/)?.[1] || 'saved';
   if (state.view !== view) { state.view = view; state.data = null; state.error = null; state.hidden.clear(); }
   if (state.admin) { shell(); load(); }
 }
@@ -149,7 +153,7 @@ onAuthStateChanged(auth, async user => {
     if (!token.claims.admin) { signInView('This account does not have administrator access.'); return; }
     state.admin = true;
     warmAnalyticsCache(adminAnalytics);
-    state.view = location.hash.match(/^#\/(saved|recommended|purchased|demographic)$/)?.[1] || 'saved';
+    state.view = location.hash.match(/^#\/(saved|recommended|purchased|bq4|demographic|bq6)$/)?.[1] || 'saved';
     shell(); load();
   } catch { signInView('Could not verify administrator access. Check your connection.'); }
 });
