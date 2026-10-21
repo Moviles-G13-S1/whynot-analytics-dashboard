@@ -11,3 +11,7 @@
 .bq-profile-heading{display:flex;align-items:start;gap:60px;flex-wrap:wrap}
 .bq-profile-heading .big{margin-top:3px}
 @media(max-width:800px){.bq-rank-row{grid-template-columns:90px minmax(0,1fr) 45px;gap:7px}.bq-leader{font-size:23px}}
+.supporting-note{min-height:0;border:1px solid #ded6cb}
+.supporting-note .muted{max-width:680px;line-height:1.55}
+.supporting-note .pill{display:inline-block;margin-top:10px;padding:9px 16px;background:#292621;color:#fff}
+.supporting-note .pill:hover{background:#4b453e}
