@@ -3,6 +3,7 @@ import { adminAnalytics, auth, useEmulators } from './firebase.js';
 import { clearAnalyticsCache, loadAnalytics, warmAnalyticsCache } from './analytics.js';
 import { renderBq3 } from './bq3-view.js';
 import { renderBq4, renderBq6 } from './bq-views.js';
+import { renderWishlistUx } from './wishlist-ux-view.js';
 import './style.css';
 
 const app = document.querySelector('#app');
@@ -13,6 +14,7 @@ const views = [
   ['bq4', 'BQ4 · Top category', 'Which category leads purchases each month?'],
   ['demographic', 'BQ6 · Product owner profile', 'Supporting view · Owners of current products by category'],
   ['bq6', 'BQ6 · Buyer profile', 'Demographics of purchasers by category'],
+  ['wishlist_interactions', 'Wishlist UX', 'Supporting view · Deliberate wishlist interactions'],
 ];
 const state = { view: 'saved', months: 6, categoryId: null, bq6CategoryId: null, savedMetric: 'percentage', hidden: new Set(), user: null, admin: false, data: null, loading: false, error: null, serial: 0 };
 const viewCache = new Map();
@@ -62,7 +64,7 @@ function renderView() {
   if (state.loading) { root.innerHTML = card('<div class="empty">Loading production analytics…</div>'); return; }
   if (state.error) { root.innerHTML = card(`<div class="empty"><h2>Could not load this metric</h2><p>${escape(state.error)}</p><button class="outline" data-action="retry">Try again</button></div>`); return; }
   if (!state.data) { root.innerHTML = ''; return; }
-  root.innerHTML = ({ saved: renderSaved, recommended: renderBq3, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId) })[state.view](state.data);
+  root.innerHTML = ({ saved: renderSaved, recommended: renderBq3, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId), wishlist_interactions: renderWishlistUx })[state.view](state.data);
 }
 
 function renderSaved(d) {
@@ -153,7 +155,7 @@ async function load(fresh = false) {
   } finally { if (serial === state.serial) { state.loading = false; renderView(); } }
 }
 function route() {
-  const view = location.hash.match(/^#\/(saved|recommended|purchased|bq4|demographic|bq6)$/)?.[1] || 'saved';
+  const view = location.hash.match(/^#\/(saved|recommended|purchased|bq4|demographic|bq6|wishlist_interactions)$/)?.[1] || 'saved';
   if (state.view !== view) { state.view = view; state.data = null; state.error = null; state.hidden.clear(); }
   if (state.admin) { shell(); load(); }
 }
@@ -169,7 +171,7 @@ onAuthStateChanged(auth, async user => {
     if (!token.claims.admin) { signInView('This account does not have administrator access.'); return; }
     state.admin = true;
     warmAnalyticsCache(adminAnalytics);
-    state.view = location.hash.match(/^#\/(saved|recommended|purchased|bq4|demographic|bq6)$/)?.[1] || 'saved';
+    state.view = location.hash.match(/^#\/(saved|recommended|purchased|bq4|demographic|bq6|wishlist_interactions)$/)?.[1] || 'saved';
     shell(); load();
   } catch { signInView('Could not verify administrator access. Check your connection.'); }
 });

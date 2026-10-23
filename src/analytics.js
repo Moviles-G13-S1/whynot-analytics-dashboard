@@ -32,5 +32,6 @@ export function warmAnalyticsCache(callAnalytics) {
     loadAnalytics(callAnalytics, 'bq4', { months: 6 }),
     loadAnalytics(callAnalytics, 'demographic'),
     loadAnalytics(callAnalytics, 'bq6'),
+    loadAnalytics(callAnalytics, 'wishlist_interactions'),
   ]);
 }
