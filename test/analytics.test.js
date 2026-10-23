@@ -43,7 +43,7 @@ test('failed calls can be retried and malformed responses are rejected', async (
   await assert.rejects(loadAnalytics(async () => ({ data: { metric: 'wrong', data: {} } }), 'recommended'));
 });
 
-test('preloads the six default views from the callable', async () => {
+test('preloads the default views from the callable', async () => {
   clearAnalyticsCache();
   const requests = [];
   const callable = async request => {
@@ -52,7 +52,7 @@ test('preloads the six default views from the callable', async () => {
   };
   const results = await warmAnalyticsCache(callable);
   assert.ok(results.every(result => result.status === 'fulfilled'));
-  assert.deepEqual(requests.map(request => request.metric), ['saved', 'recommended', 'purchased', 'bq4', 'demographic', 'bq6']);
+  assert.deepEqual(requests.map(request => request.metric), ['saved', 'recommended', 'purchased', 'bq4', 'demographic', 'bq6', 'wishlist_interactions']);
   assert.deepEqual(requests.find(request => request.metric === 'bq4').params, { months: 6 });
 });
 

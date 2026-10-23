@@ -15,3 +15,6 @@
 .supporting-note .muted{max-width:680px;line-height:1.55}
 .supporting-note .pill{display:inline-block;margin-top:10px;padding:9px 16px;background:#292621;color:#fff}
 .supporting-note .pill:hover{background:#4b453e}
+.ux-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+.ux-table th, .ux-table td { padding: 0.7rem; border-bottom: 1px solid #e7e1dc; white-space: nowrap; }
+.ux-table thead th { color: #786e67; font-weight: 600; }
