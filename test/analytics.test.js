@@ -52,7 +52,7 @@ test('preloads the default views from the callable', async () => {
   };
   const results = await warmAnalyticsCache(callable);
   assert.ok(results.every(result => result.status === 'fulfilled'));
-  assert.deepEqual(requests.map(request => request.metric), ['saved', 'recommended', 'purchased', 'bq4', 'demographic', 'bq6', 'wishlist_interactions']);
+  assert.deepEqual(requests.map(request => request.metric), ['saved', 'recommended', 'purchased', 'bq4', 'demographic', 'bq6', 'wishlist_interactions', 'recommendation_home_opens']);
   assert.deepEqual(requests.find(request => request.metric === 'bq4').params, { months: 6 });
 });
 
