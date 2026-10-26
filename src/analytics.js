@@ -33,5 +33,6 @@ export function warmAnalyticsCache(callAnalytics) {
     loadAnalytics(callAnalytics, 'demographic'),
     loadAnalytics(callAnalytics, 'bq6'),
     loadAnalytics(callAnalytics, 'wishlist_interactions'),
+    loadAnalytics(callAnalytics, 'recommendation_home_opens'),
   ]);
 }
