@@ -84,7 +84,7 @@ function renderView() {
   if (state.loading) { root.innerHTML = card('<div class="empty">Loading production analytics…</div>'); return; }
   if (state.error) { root.innerHTML = card(`<div class="empty"><h2>Could not load this metric</h2><p>${escape(state.error)}</p><button class="outline" data-action="retry">Try again</button></div>`); return; }
   if (!state.data) { root.innerHTML = ''; return; }
-  root.innerHTML = ({ manual_product_usage: renderManualProductUsage, weekly_app_errors: renderWeeklyErrors, saved: renderSaved, recommended: renderBq3, core_saving_features: renderCoreSavingFeatures, purchase_savings: renderPurchaseSavings, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId), wishlist_interactions: renderWishlistUx, buying_patterns: data => renderBuyingPatterns(data, state.months) })[state.view](state.data);
+  root.innerHTML = ({ manual_product_usage: renderManualProductUsage, weekly_app_errors: renderWeeklyErrors, recommendation_home_opens: renderRecommendationHome, saved: renderSaved, recommended: renderBq3, core_saving_features: renderCoreSavingFeatures, purchase_savings: renderPurchaseSavings, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId), wishlist_interactions: renderWishlistUx, buying_patterns: data => renderBuyingPatterns(data, state.months) })[state.view](state.data);
 }
 
 function renderSaved(d) {
