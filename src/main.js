@@ -9,6 +9,7 @@ import { renderRecommendationHome } from './recommendation-home-view.js';
 import { renderCoreSavingFeatures } from './core-saving-features-view.js';
 import { renderPurchaseSavings } from './purchase-savings-view.js';
 import { renderWeeklyErrors } from './weekly-errors-view.js';
+import { renderManualProductUsage } from './manual-product-usage-view.js';
 import './style.css';
 
 const app = document.querySelector('#app');
@@ -22,6 +23,7 @@ const viewGroups = [
     ['bq6', 'BQ6 · Buyer profile', 'Demographics of purchasers by category'],
   ]],
   ['SPRINT 3', [
+    ['manual_product_usage', 'Manual product usage', 'Martín · Type 3 · Manual entry versus saved recommendations'],
     ['weekly_app_errors', 'Weekly app errors', 'Jerónimo · Type 1 · Captured technical errors per week'],
     ['recommendation_home_opens', 'Home detail opens', 'Type 3 · Flutter Home recommendation card usage'],
     ['buying_patterns', 'Buying patterns', 'Juan Felipe · BQ Type * (2/4)'],
@@ -82,7 +84,7 @@ function renderView() {
   if (state.loading) { root.innerHTML = card('<div class="empty">Loading production analytics…</div>'); return; }
   if (state.error) { root.innerHTML = card(`<div class="empty"><h2>Could not load this metric</h2><p>${escape(state.error)}</p><button class="outline" data-action="retry">Try again</button></div>`); return; }
   if (!state.data) { root.innerHTML = ''; return; }
-  root.innerHTML = ({ weekly_app_errors: renderWeeklyErrors, saved: renderSaved, recommended: renderBq3, core_saving_features: renderCoreSavingFeatures, purchase_savings: renderPurchaseSavings, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId), wishlist_interactions: renderWishlistUx, buying_patterns: data => renderBuyingPatterns(data, state.months) })[state.view](state.data);
+  root.innerHTML = ({ manual_product_usage: renderManualProductUsage, weekly_app_errors: renderWeeklyErrors, saved: renderSaved, recommended: renderBq3, core_saving_features: renderCoreSavingFeatures, purchase_savings: renderPurchaseSavings, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId), wishlist_interactions: renderWishlistUx, buying_patterns: data => renderBuyingPatterns(data, state.months) })[state.view](state.data);
 }
 
 function renderSaved(d) {
@@ -180,7 +182,7 @@ async function load(fresh = false) {
   } finally { if (serial === state.serial) { state.loading = false; renderView(); } }
 }
 function route() {
-  const view = location.hash.match(/^#\/(saved|recommended|weekly_app_errors|recommendation_home_opens|purchased|bq4|demographic|bq6|wishlist_interactions|buying_patterns|core_saving_features|purchase_savings)$/)?.[1] || 'saved';
+  const view = location.hash.match(/^#\/(saved|recommended|weekly_app_errors|recommendation_home_opens|purchased|bq4|demographic|bq6|wishlist_interactions|buying_patterns|core_saving_features|purchase_savings|manual_product_usage)$/)?.[1] || 'saved';
   if (state.view !== view) { state.view = view; state.data = null; state.error = null; state.hidden.clear(); }
   if (state.admin) { shell(); load(); }
 }
@@ -196,7 +198,7 @@ onAuthStateChanged(auth, async user => {
     if (!token.claims.admin) { signInView('This account does not have administrator access.'); return; }
     state.admin = true;
     warmAnalyticsCache(adminAnalytics);
-    state.view = location.hash.match(/^#\/(saved|recommended|weekly_app_errors|recommendation_home_opens|purchased|bq4|demographic|bq6|wishlist_interactions|buying_patterns|core_saving_features|purchase_savings)$/)?.[1] || 'saved';
+    state.view = location.hash.match(/^#\/(saved|recommended|weekly_app_errors|recommendation_home_opens|purchased|bq4|demographic|bq6|wishlist_interactions|buying_patterns|core_saving_features|purchase_savings|manual_product_usage)$/)?.[1] || 'saved';
     shell(); load();
   } catch { signInView('Could not verify administrator access. Check your connection.'); }
 });
