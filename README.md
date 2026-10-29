@@ -49,6 +49,29 @@ For browser testing against local emulators, run Auth, Firestore, and Functions 
 
 For a read-only production check after deployment: run the dashboard, sign in with an admin account, inspect each view and change its filters, refresh, sign out, then sign in with a regular account and confirm access is denied. A second teammate should repeat from another computer.
 
+## Sprint 3 — Weekly app errors
+
+Jerónimo's Type 1 BQ, **How many errors does the app produce weekly?**, is in
+the **Sprint 3** navigation group at `#/weekly_app_errors`. It calls
+`get_admin_analytics({ metric: 'weekly_app_errors', params: { weeks: 8 } })`.
+The 4/8/12-week filters have separate session cache entries; **Refresh** requests
+updated backend data. The browser renders backend counts and bar proportions.
+
+The metric uses `applicationErrorEvents` from the updated Flutter app, grouped
+by occurrence week (Monday–Sunday, `America/Bogota`). The current week is partial.
+Cards compare current and previous full week; charts and breakdowns describe
+captured technical failures. Capture scope, delayed offline delivery,
+client-clock dependence and the bounded device queue are documented in the
+backend contract. No received events does not prove that no failures occurred.
+
+Deploy the updated backend callable and Firestore rules before using this view
+against the shared project. The full contract and local integration test are
+documented in the sibling backend's `docs/weekly-app-errors.md`. On October 28,
+2026, the weekly metric and its event rules were deployed to the shared project
+and the dashboard read was verified. Existing production BQ modules were
+preserved. Dashboard validation: 31 tests passed and the production build
+completed.
+
 ## Development commands
 
 ```bash

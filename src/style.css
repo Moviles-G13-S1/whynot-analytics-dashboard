@@ -153,3 +153,12 @@
     font-size: 23px;
   }
 }
+
+.weekly-error-scroll{overflow-x:auto;padding-top:16px}
+.weekly-error-chart{display:flex;gap:14px;min-width:540px;align-items:flex-start}
+.weekly-error-column{flex:1;min-width:36px;text-align:center;font-size:12px}
+.weekly-error-track{height:160px;display:flex;align-items:flex-end;justify-content:center;margin:8px 0;background:#e9e1d5;border-radius:6px;overflow:hidden}
+.weekly-error-bar{width:100%;background:#62574a;border-radius:6px 6px 0 0}
+.weekly-error-bar.partial{background:#aa9478}
+.error-breakdown{margin:0}.error-breakdown>div{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #e0d7cb}
+.error-breakdown dt{font-size:13px}.error-breakdown dd{margin:0;font-weight:600}
