@@ -162,3 +162,57 @@
 .weekly-error-bar.partial{background:#aa9478}
 .error-breakdown{margin:0}.error-breakdown>div{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #e0d7cb}
 .error-breakdown dt{font-size:13px}.error-breakdown dd{margin:0;font-weight:600}
+/* Sprint 4 - Errors vs. saved products */
+
+.error-scatter-container {
+  width: 100%;
+  overflow-x: auto;
+  margin: 25px 0 15px;
+}
+
+.error-scatter-chart {
+  display: block;
+  width: 100%;
+  min-width: 480px;
+  height: auto;
+}
+
+.error-scatter-grid {
+  stroke: #d7cfc3;
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.error-scatter-axis {
+  stroke: #91877a;
+  stroke-width: 1.2;
+}
+
+.error-scatter-label {
+  fill: #736e66;
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.error-scatter-axis-title {
+  fill: #605b55;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+}
+
+.error-scatter-point {
+  fill: #91877a;
+  fill-opacity: 0.75;
+  stroke: #605b55;
+  stroke-width: 1.2;
+  cursor: help;
+}
+
+.error-scatter-point:hover,
+.error-scatter-point:focus {
+  fill: #6b9377;
+  fill-opacity: 1;
+  stroke: #252320;
+  stroke-width: 2;
+}
