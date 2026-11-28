@@ -15,6 +15,7 @@ import { renderStoreDomains } from './store-domains-view.js';
 import { renderNearbyDetailOpens } from './nearby-detail-opens-view.js';
 import { renderErrorsVsSavedProducts } from './errors-vs-saved-products-view.js';
 import { renderHomeLoadTime } from './home-load-time-view.js';
+import { renderProductCompleteness } from './product-completeness-view.js';
 import './style.css';
 
 const app = document.querySelector('#app');
@@ -41,6 +42,7 @@ const viewGroups = [
     ['nearby_detail_opens', 'Nearby detail opens', 'Juan Felipe · BQ Type 3 · Users opening a nearby store detail per week'],
     ['errors_vs_saved_products', 'Errors vs. saved products', 'Juliana · BQ Type T* (1+2) · Relationship between recorded errors and saved products'],
     ['home_load_time', 'Home load time', 'Miguel · BQ Type 1 · Average loading time of the Home screen per platform'],
+    ['product_completeness', 'Product completeness', 'Jerónimo · BQ Type 2 · Saved products missing an image or a product link'],
   ]],
   ['SUPPORT VIEWS', [
     ['wishlist_interactions', 'Wishlist UX', 'Supporting view · Deliberate wishlist interactions'],
@@ -96,7 +98,7 @@ function renderView() {
   if (state.loading) { root.innerHTML = card('<div class="empty">Loading production analytics…</div>'); return; }
   if (state.error) { root.innerHTML = card(`<div class="empty"><h2>Could not load this metric</h2><p>${escape(state.error)}</p><button class="outline" data-action="retry">Try again</button></div>`); return; }
   if (!state.data) { root.innerHTML = ''; return; }
-  root.innerHTML = ({ home_load_time: renderHomeLoadTime, errors_vs_saved_products: renderErrorsVsSavedProducts,
+  root.innerHTML = ({ product_completeness: renderProductCompleteness, home_load_time: renderHomeLoadTime, errors_vs_saved_products: renderErrorsVsSavedProducts,
 nearby_detail_opens: renderNearbyDetailOpens, store_domains: renderStoreDomains, manual_product_usage: renderManualProductUsage, weekly_app_errors: renderWeeklyErrors, recommendation_home_opens: renderRecommendationHome, saved: renderSaved, recommended: renderBq3, core_saving_features: renderCoreSavingFeatures, purchase_savings: renderPurchaseSavings, save_attempts: renderSaveAttempts, purchased: renderPurchased, bq4: data => renderBq4(data, state.months), demographic: renderDemographic, bq6: data => renderBq6(data, state.bq6CategoryId), wishlist_interactions: renderWishlistUx, buying_patterns: data => renderBuyingPatterns(data, state.months) })[state.view](state.data);
 }
 
@@ -195,7 +197,7 @@ async function load(fresh = false) {
   } finally { if (serial === state.serial) { state.loading = false; renderView(); } }
 }
 function route() {
-  const view = location.hash.match(/^#\/(saved|recommended|weekly_app_errors|recommendation_home_opens|purchased|bq4|demographic|bq6|wishlist_interactions|buying_patterns|core_saving_features|purchase_savings|save_attempts|manual_product_usage|store_domains|nearby_detail_opens|errors_vs_saved_products|home_load_time)$/)?.[1] || 'saved';
+  const view = location.hash.match(/^#\/(saved|recommended|weekly_app_errors|recommendation_home_opens|purchased|bq4|demographic|bq6|wishlist_interactions|buying_patterns|core_saving_features|purchase_savings|save_attempts|manual_product_usage|store_domains|nearby_detail_opens|errors_vs_saved_products|home_load_time|product_completeness)$/)?.[1] || 'saved';
   if (state.view !== view) { state.view = view; state.data = null; state.error = null; state.hidden.clear(); }
   if (state.admin) { shell(); load(); }
 }
@@ -211,7 +213,7 @@ onAuthStateChanged(auth, async user => {
     if (!token.claims.admin) { signInView('This account does not have administrator access.'); return; }
     state.admin = true;
     warmAnalyticsCache(adminAnalytics);
-    state.view = location.hash.match(/^#\/(saved|recommended|weekly_app_errors|recommendation_home_opens|purchased|bq4|demographic|bq6|wishlist_interactions|buying_patterns|core_saving_features|purchase_savings|save_attempts|manual_product_usage|store_domains|nearby_detail_opens|errors_vs_saved_products|home_load_time)$/)?.[1] || 'saved';
+    state.view = location.hash.match(/^#\/(saved|recommended|weekly_app_errors|recommendation_home_opens|purchased|bq4|demographic|bq6|wishlist_interactions|buying_patterns|core_saving_features|purchase_savings|save_attempts|manual_product_usage|store_domains|nearby_detail_opens|errors_vs_saved_products|home_load_time|product_completeness)$/)?.[1] || 'saved';
     shell(); load();
   } catch { signInView('Could not verify administrator access. Check your connection.'); }
 });
