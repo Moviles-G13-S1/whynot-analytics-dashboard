@@ -74,6 +74,26 @@ and the dashboard read was verified. Existing production BQ modules were
 preserved. Dashboard validation: 31 tests passed and the production build
 completed.
 
+## Sprint 4 — Product completeness
+
+Jerónimo's Type 2 BQ, **What percentage of saved products are missing an image
+or a product link?**, appears under **Sprint 4 → Product completeness** at
+`#/product_completeness`. It calls the shared `get_admin_analytics` callable
+with `{ metric: 'product_completeness', params: {} }`.
+
+The backend calculates all counts and percentages. Cards show the percentage
+missing either field (each product once), total current products, the separate
+image/link percentages and counts, and the count missing both. All current
+saved products count, including purchased products; deleted products do not.
+The calculation considers only field presence, with whitespace-only, absent,
+null and non-text fields treated as missing. URLs are not checked. Percentages
+are displayed to one decimal; an empty collection shows no data rather than 0%.
+The shared session cache and **Refresh** behavior apply unchanged.
+
+Deploy the updated backend `functions:get_admin_analytics` before reviewing
+this view against production. No Firestore rules, indexes or mobile update
+are required. Tests: `test/product-completeness-view.test.js`.
+
 ## Development commands
 
 ```bash
